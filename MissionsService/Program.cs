@@ -1,12 +1,81 @@
+using System.Diagnostics;
+
+const string RequestIdHeader = "X-Request-ID";
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Logging.ClearProviders();
+builder.Logging.AddSimpleConsole(options =>
+{
+    options.SingleLine = true;
+    options.TimestampFormat = "HH:mm:ss ";
+});
+
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+var requestLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("MissionsService.Requests");
 
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+
+app.Use(async (context, next) =>
+{
+    var startedAt = Stopwatch.GetTimestamp();
+    var requestId = GetOrCreateRequestId(context);
+    Exception? requestException = null;
+
+    context.Response.OnStarting(() =>
+    {
+        context.Response.Headers[RequestIdHeader] = requestId;
+        return Task.CompletedTask;
+    });
+
+    requestLogger.LogInformation(
+        "[MISSIONS][IN ] id={RequestId} {Method} {Path}{QueryString} client={RemoteIp}",
+        requestId,
+        context.Request.Method,
+        context.Request.Path,
+        context.Request.QueryString,
+        context.Connection.RemoteIpAddress);
+
+    try
+    {
+        await next();
+    }
+    catch (Exception exception)
+    {
+        requestException = exception;
+        requestLogger.LogError(
+            exception,
+            "[MISSIONS][ERR] id={RequestId} {Method} {Path}{QueryString} failed: {ErrorMessage}",
+            requestId,
+            context.Request.Method,
+            context.Request.Path,
+            context.Request.QueryString,
+            exception.Message);
+
+        throw;
+    }
+    finally
+    {
+        var elapsedMs = Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds;
+        var statusCode = requestException is null
+            ? context.Response.StatusCode
+            : StatusCodes.Status500InternalServerError;
+
+        requestLogger.LogInformation(
+            "[MISSIONS][OUT] id={RequestId} status={StatusCode} {Method} {Path}{QueryString} duration={ElapsedMs:0.0}ms",
+            requestId,
+            statusCode,
+            context.Request.Method,
+            context.Request.Path,
+            context.Request.QueryString,
+            elapsedMs);
+    }
+});
 
 var missions = new List<Mission>
 {
@@ -36,6 +105,15 @@ app.MapGet("/missions/by-difficulty/{difficulty}", (string difficulty) =>
     missions.Where(m => m.Difficulty.Equals(difficulty, StringComparison.OrdinalIgnoreCase)));
 
 app.Run();
+
+string GetOrCreateRequestId(HttpContext context)
+{
+    var requestId = context.Request.Headers[RequestIdHeader].FirstOrDefault();
+
+    return string.IsNullOrWhiteSpace(requestId)
+        ? context.TraceIdentifier
+        : requestId;
+}
 
 record Mission(
     string Id,

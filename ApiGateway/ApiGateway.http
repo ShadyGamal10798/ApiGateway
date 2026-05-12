@@ -4,3 +4,39 @@ GET {{ApiGateway_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###
+
+
+@gateway = https://localhost:5000
+
+### كل العملاء
+GET {{gateway}}/agents
+
+### عميل واحد
+GET {{gateway}}/agents/007
+
+### العملاء النشطين
+GET {{gateway}}/agents/active
+
+### العملاء في القاهرة
+GET {{gateway}}/agents/by-location/Cairo
+
+### عملاء التخفي
+GET {{gateway}}/agents/by-specialty/Stealth
+
+### كل المهمات
+GET {{gateway}}/missions
+
+### مهمة واحدة
+GET {{gateway}}/missions/M-2024-001
+
+### المهمات الشغالة
+GET {{gateway}}/missions/in-progress
+
+### مهمات العميل 007
+GET {{gateway}}/missions/by-agent/007
+
+### مهمات الـ Critical
+GET {{gateway}}/missions/by-difficulty/Critical
+
+### مسار غير معروف (المفروض 404)
+GET {{gateway}}/unknown
