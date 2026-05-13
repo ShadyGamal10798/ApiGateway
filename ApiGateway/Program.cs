@@ -1,9 +1,14 @@
 using System.Diagnostics;
+using System.Globalization;
+using System.Security.Claims;
+using System.Threading.RateLimiting;
 
 const string RequestIdHeader = "X-Request-ID";
 const string RequestIdItemName = "RequestId";
 
 var builder = WebApplication.CreateBuilder(args);
+var rateLimitPermitLimit = Math.Max(1, builder.Configuration.GetValue("RateLimiting:PermitLimit", 100));
+var rateLimitWindowSeconds = Math.Max(1, builder.Configuration.GetValue("RateLimiting:WindowSeconds", 60));
 
 builder.Logging.ClearProviders();
 builder.Logging.AddSimpleConsole(options =>
@@ -14,6 +19,36 @@ builder.Logging.AddSimpleConsole(options =>
 
 builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: GetRateLimitPartitionKey(context),
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = rateLimitPermitLimit,
+                Window = TimeSpan.FromSeconds(rateLimitWindowSeconds),
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                AutoReplenishment = true
+            }));
+
+    options.OnRejected = (context, cancellationToken) =>
+    {
+        var response = context.HttpContext.Response;
+        response.ContentType = "text/plain";
+
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            response.Headers["Retry-After"] =
+                Math.Ceiling(retryAfter.TotalSeconds).ToString(CultureInfo.InvariantCulture);
+        }
+
+        return new ValueTask(response.WriteAsync("Rate limit exceeded. Try again later.", cancellationToken));
+    };
+});
 
 var app = builder.Build();
 var requestLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("ApiGateway.Requests");
@@ -77,6 +112,7 @@ app.Use(async (context, next) =>
 });
 
 app.UseHttpsRedirection();
+app.UseRateLimiter();
 
 app.MapReverseProxy(proxyPipeline =>
 {
@@ -132,4 +168,18 @@ string GetOrCreateRequestId(HttpContext context)
     return string.IsNullOrWhiteSpace(requestId)
         ? context.TraceIdentifier
         : requestId;
+}
+
+string GetRateLimitPartitionKey(HttpContext context)
+{
+    var userId = context.User.FindFirstValue(ClaimTypes.NameIdentifier)
+        ?? context.User.FindFirstValue("sub")
+        ?? context.User.Identity?.Name;
+
+    if (!string.IsNullOrWhiteSpace(userId))
+    {
+        return $"user:{userId}";
+    }
+
+    return $"ip:{context.Connection.RemoteIpAddress?.ToString() ?? "unknown"}";
 }
