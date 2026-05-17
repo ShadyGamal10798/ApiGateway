@@ -12,6 +12,7 @@ builder.Logging.AddSimpleConsole(options =>
 });
 
 builder.Services.AddOpenApi();
+builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 var requestLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("MissionsService.Requests");
@@ -20,6 +21,14 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+
+app.MapHealthChecks("/health");
+app.MapGet("/alive", () => Results.Ok(new
+{
+    Status = "Alive",
+    System = "MissionsService",
+    CheckedAtUtc = DateTimeOffset.UtcNow
+}));
 
 app.Use(async (context, next) =>
 {

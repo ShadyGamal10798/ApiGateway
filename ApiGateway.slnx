@@ -1,5 +1,7 @@
 <Solution>
   <Project Path="AgentsService/AgentsService.csproj" />
+  <Project Path="ApiGateway.AppHost/ApiGateway.AppHost.csproj" />
   <Project Path="ApiGateway/ApiGateway.csproj" />
+  <Project Path="HealthNotifier/HealthNotifier.csproj" />
   <Project Path="MissionsService/MissionsService.csproj" />
 </Solution>

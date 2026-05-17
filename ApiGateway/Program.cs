@@ -96,6 +96,8 @@ builder.Services.AddRateLimiter(options =>
     };
 });
 
+builder.Services.AddHealthChecks();
+
 var app = builder.Build();
 var requestLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("ApiGateway.Requests");
 
@@ -235,6 +237,14 @@ app.Use(async (context, next) =>
 
 app.UseHttpsRedirection();
 app.UseRateLimiter();
+
+app.MapHealthChecks("/health").DisableRateLimiting();
+app.MapGet("/alive", () => Results.Ok(new
+{
+    Status = "Alive",
+    System = GatewaySystemName,
+    CheckedAtUtc = DateTimeOffset.UtcNow
+})).DisableRateLimiting();
 
 app.MapReverseProxy(proxyPipeline =>
 {
