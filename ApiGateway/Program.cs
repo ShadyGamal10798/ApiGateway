@@ -478,6 +478,11 @@ string GetSystemNameFromPath(PathString path)
         return "Madar";
     }
 
+    if (path.StartsWithSegments("/auth", StringComparison.OrdinalIgnoreCase))
+    {
+        return "SSO";
+    }
+
     return UnknownValue;
 }
 
@@ -488,6 +493,7 @@ string GetSystemNameFromCluster(string clusterId)
         "agents-cluster" => "AgentsService",
         "missions-cluster" => "MissionsService",
         "madar-stage-cluster" => "Madar",
+        "auth-shared-cluster" => "SSO",
         _ => UnknownValue
     };
 }
