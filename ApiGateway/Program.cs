@@ -473,9 +473,14 @@ string GetSystemNameFromPath(PathString path)
         return "MissionsService";
     }
 
-    if (path.StartsWithSegments("/madar", StringComparison.OrdinalIgnoreCase))
+    if (path.StartsWithSegments("/madar-operation", StringComparison.OrdinalIgnoreCase))
     {
-        return "Madar";
+        return "madar-operation";
+    }
+
+    if (path.StartsWithSegments("/madar-business", StringComparison.OrdinalIgnoreCase))
+    {
+        return "madar-business";
     }
 
     if (path.StartsWithSegments("/auth", StringComparison.OrdinalIgnoreCase))
@@ -492,7 +497,8 @@ string GetSystemNameFromCluster(string clusterId)
     {
         "agents-cluster" => "AgentsService",
         "missions-cluster" => "MissionsService",
-        "madar-dev-cluster" => "Madar",
+        "madar-operation-dev-cluster" => "madar-operation",
+        "madar-business-dev-cluster" => "madar-business",
         "auth-shared-cluster" => "SSO",
         _ => UnknownValue
     };
