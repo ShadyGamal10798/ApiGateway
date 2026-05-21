@@ -487,7 +487,7 @@ string GetSystemNameFromCluster(string clusterId)
     {
         "agents-cluster" => "AgentsService",
         "missions-cluster" => "MissionsService",
-        "madar-stage-cluster" => "Madar",
+        "madar-dev-cluster" => "Madar",
         _ => UnknownValue
     };
 }
