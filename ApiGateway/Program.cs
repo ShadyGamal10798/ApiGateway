@@ -473,6 +473,11 @@ string GetSystemNameFromPath(PathString path)
         return "MissionsService";
     }
 
+    if (path.StartsWithSegments("/madar", StringComparison.OrdinalIgnoreCase))
+    {
+        return "Madar";
+    }
+
     return UnknownValue;
 }
 
@@ -482,6 +487,7 @@ string GetSystemNameFromCluster(string clusterId)
     {
         "agents-cluster" => "AgentsService",
         "missions-cluster" => "MissionsService",
+        "madar-stage-cluster" => "Madar",
         _ => UnknownValue
     };
 }
